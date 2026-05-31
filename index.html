@@ -537,7 +537,7 @@ body::before {
 // ══════════════════════════════════════════════════════════
 // SUPABASE CLIENT
 // ══════════════════════════════════════════════════════════
-let supabase = null;
+let sbClient = null;
 let isConfigured = false;
 
 function initSupabase() {
@@ -547,7 +547,7 @@ function initSupabase() {
     return;
   }
   try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     isConfigured = true;
   } catch(e) {
     console.error('Supabase init failed:', e);
@@ -685,7 +685,7 @@ async function doLogin() {
   btn.textContent = 'Signing in…'; btn.disabled = true;
   hideMessages();
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
   if (error) {
     showError(error.message || 'Login failed. Check your email and password.');
     btn.textContent = 'Sign In →'; btn.disabled = false;
@@ -693,7 +693,7 @@ async function doLogin() {
   }
 
   // Fetch profile
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
+  const { data: profile } = await sbClient.from('profiles').select('*').eq('id', data.user.id).single();
   await onLoginSuccess(data.user.id, profile?.display_name || profile?.username || email);
   btn.textContent = 'Sign In →'; btn.disabled = false;
 }
@@ -714,7 +714,7 @@ async function doRegister() {
   hideMessages();
 
   // Check username uniqueness
-  const { data: existing } = await supabase.from('profiles').select('id').eq('username', username).maybeSingle();
+  const { data: existing } = await sbClient.from('profiles').select('id').eq('username', username).maybeSingle();
   if (existing) {
     showError('Username already taken. Choose another.');
     btn.textContent = 'Create Account →'; btn.disabled = false;
@@ -722,7 +722,7 @@ async function doRegister() {
   }
 
   // Create auth user
-  const { data, error } = await supabase.auth.signUp({ email, password: pass });
+  const { data, error } = await sbClient.auth.signUp({ email, password: pass });
   if (error) {
     showError(error.message || 'Registration failed. Try again.');
     btn.textContent = 'Create Account →'; btn.disabled = false;
@@ -731,7 +731,7 @@ async function doRegister() {
 
   if (data.user) {
     // Insert profile
-    await supabase.from('profiles').insert({
+    await sbClient.from('profiles').insert({
       id: data.user.id,
       username: username,
       display_name: name
@@ -757,7 +757,7 @@ async function doForgotPassword() {
   btn.textContent = 'Sending…'; btn.disabled = true;
   hideMessages();
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await sbClient.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.href
   });
 
@@ -786,7 +786,7 @@ async function onLoginSuccess(userId, displayName) {
 }
 
 async function doLogout() {
-  if (supabase) await supabase.auth.signOut();
+  if (sbClient) await sbClient.auth.signOut();
   currentUserId = null; currentDisplayName = null; _userData = {};
   activeAddType = null; closeSidebar();
   document.getElementById('app').style.display = 'none';
@@ -802,7 +802,7 @@ async function doLogout() {
 async function loadAllEntries() {
   if (!isConfigured || !currentUserId) return;
   setSyncStatus('syncing');
-  const { data, error } = await supabase
+  const { data, error } = await sbClient
     .from('budget_entries')
     .select('*')
     .eq('user_id', currentUserId);
@@ -846,7 +846,7 @@ async function saveEntry(year, month, type, entry) {
     category:   entry.category || null,
     is_fixed:   entry.fixed || false
   };
-  const { data, error } = await supabase.from('budget_entries').insert(row).select().single();
+  const { data, error } = await sbClient.from('budget_entries').insert(row).select().single();
   if (error) { setSyncStatus('error'); showToast('Save error: ' + error.message); return null; }
   setSyncStatus('synced');
   return data.id;
@@ -855,7 +855,7 @@ async function saveEntry(year, month, type, entry) {
 async function deleteEntry(entryId) {
   if (!isConfigured) return;
   setSyncStatus('syncing');
-  const { error } = await supabase.from('budget_entries').delete().eq('id', entryId);
+  const { error } = await sbClient.from('budget_entries').delete().eq('id', entryId);
   if (error) { setSyncStatus('error'); showToast('Delete error: ' + error.message); return; }
   setSyncStatus('synced');
 }
@@ -957,7 +957,7 @@ function renderMain() {
     <div class="tables-grid">
       <div>
         <div class="section-header">
-          <div class="section-title"> Income <span class="section-badge badge-green">${fmt(totalIncome)}</span></div>
+          <div class="section-title">📥 Income <span class="section-badge badge-green">${fmt(totalIncome)}</span></div>
           <button class="btn-add green" onclick="toggleAddRow('income')">+ Add</button>
         </div>
         <div class="data-table"><div class="table-scroll">
@@ -970,7 +970,7 @@ function renderMain() {
       </div>
       <div>
         <div class="section-header">
-          <div class="section-title"> Expenses <span class="section-badge badge-red">${fmt(totalExpenses)}</span></div>
+          <div class="section-title">📤 Expenses <span class="section-badge badge-red">${fmt(totalExpenses)}</span></div>
           <button class="btn-add red" onclick="toggleAddRow('expenses')">+ Add</button>
         </div>
         <div class="data-table"><div class="table-scroll">
@@ -983,7 +983,7 @@ function renderMain() {
       </div>
       <div>
         <div class="section-header">
-          <div class="section-title"> Savings <span class="section-badge badge-purple">${fmt(totalSavings)}</span></div>
+          <div class="section-title">🏦 Savings <span class="section-badge badge-purple">${fmt(totalSavings)}</span></div>
           <button class="btn-add purple" onclick="toggleAddRow('savings')">+ Add</button>
         </div>
         <div class="data-table"><div class="table-scroll">
@@ -996,7 +996,7 @@ function renderMain() {
       </div>
       <div>
         <div class="section-header">
-          <div class="section-title"> Loans &amp; Fixed <span class="section-badge badge-yellow">${fmt(totalLoans)}</span></div>
+          <div class="section-title">💳 Loans &amp; Fixed <span class="section-badge badge-yellow">${fmt(totalLoans)}</span></div>
           <button class="btn-add yellow" onclick="toggleAddRow('loans')">+ Add</button>
         </div>
         <div class="data-table"><div class="table-scroll">
@@ -1143,17 +1143,17 @@ async function handlePasswordResetRedirect() {
   const hash = window.location.hash;
   if (hash.includes('type=recovery') || hash.includes('access_token')) {
     // Supabase handles session from URL hash automatically
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await sbClient.auth.getSession();
     if (session) {
       // Show a "set new password" prompt
       const newPass = prompt('Enter your new password (min 6 characters):');
       if (newPass && newPass.length >= 6) {
-        const { error } = await supabase.auth.updateUser({ password: newPass });
+        const { error } = await sbClient.auth.updateUser({ password: newPass });
         if (error) {
           alert('Error updating password: ' + error.message);
         } else {
           alert('✓ Password updated! You are now signed in.');
-          const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+          const { data: profile } = await sbClient.from('profiles').select('*').eq('id', session.user.id).single();
           await onLoginSuccess(session.user.id, profile?.display_name || profile?.username || session.user.email);
         }
       }
@@ -1172,13 +1172,13 @@ async function init() {
   if (!isConfigured) return;
 
   // Check if already logged in (session persisted)
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await sbClient.auth.getSession();
 
   // Handle password reset redirect
   await handlePasswordResetRedirect();
 
   if (session && !currentUserId) {
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+    const { data: profile } = await sbClient.from('profiles').select('*').eq('id', session.user.id).single();
     await onLoginSuccess(session.user.id, profile?.display_name || profile?.username || session.user.email);
   }
 }
